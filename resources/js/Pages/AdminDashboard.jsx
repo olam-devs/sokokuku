@@ -41,7 +41,7 @@ function Overview() {
                 <StatCard label="Businesses surveyed" value={stats.total_businesses} />
                 <StatCard label="Egg buyers" value={stats.egg_buyers} sub={`${stats.total_egg_trays_per_purchase} trays/purchase`} />
                 <StatCard label="Chicken buyers" value={stats.chicken_buyers} sub={`${stats.total_chicken_birds_per_week} birds/wk`} />
-                <StatCard label="Interested prospects" value={stats.interested_prospects} color="text-green-700" />
+                <StatCard label="Interested prospects" value={stats.interested_prospects} color="text-amber-700" />
             </div>
             <div>
                 <h3 className="font-semibold text-gray-700 mb-3">Recent Visits</h3>
@@ -92,7 +92,7 @@ function MapView() {
                 <div className="flex gap-3 text-sm">
                     {[['buyers', '🏪 Buyers', buyers.length], ['suppliers', '🌾 Suppliers', suppliers.length]].map(([k, label, count]) => (
                         <label key={k} className="flex items-center gap-1.5 cursor-pointer">
-                            <input type="checkbox" checked={show[k]} onChange={e => setShow(s => ({ ...s, [k]: e.target.checked }))} className="accent-green-600" />
+                            <input type="checkbox" checked={show[k]} onChange={e => setShow(s => ({ ...s, [k]: e.target.checked }))} className="accent-amber-600" />
                             <span>{label} ({count})</span>
                         </label>
                     ))}
@@ -142,7 +142,7 @@ function Clusters() {
                         <div key={ward} className="px-4 py-3 border-b last:border-0">
                             <div className="flex items-center justify-between mb-2">
                                 <h4 className="text-sm font-medium text-gray-700">{ward}</h4>
-                                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">{items.length} businesses</span>
+                                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">{items.length} businesses</span>
                             </div>
                             <div className="flex flex-wrap gap-1.5">
                                 {items.map(b => (
@@ -215,7 +215,7 @@ function BusinessList() {
                     <option value="maybe">Maybe</option>
                     <option value="no">No</option>
                 </select>
-                <button onClick={load} className="bg-green-600 text-white text-sm px-3 py-1.5 rounded-lg">Filter</button>
+                <button onClick={load} className="bg-amber-600 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-amber-700 transition">Filter</button>
             </div>
             {!businesses ? <div className="text-gray-400">Loading…</div> : (
                 <div className="bg-white rounded-xl shadow-sm overflow-x-auto">
@@ -289,7 +289,7 @@ function FarmerList() {
                     <option value="egg">Eggs</option>
                     <option value="chicken">Chicken</option>
                 </select>
-                <button onClick={load} className="bg-green-600 text-white text-sm px-3 py-1.5 rounded-lg">Filter</button>
+                <button onClick={load} className="bg-amber-600 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-amber-700 transition">Filter</button>
             </div>
             {!farmers ? <div className="text-gray-400">Loading…</div> : (
                 <div className="bg-white rounded-xl shadow-sm overflow-x-auto">
@@ -325,13 +325,22 @@ function FarmerList() {
 
 export default function AdminDashboard() {
     const { user, logout } = useAuth();
-    const navClass = ({ isActive }) => `px-3 py-2 text-sm font-medium rounded-lg transition ${isActive ? 'bg-green-700 text-white' : 'text-green-100 hover:bg-green-600'}`;
+    const navClass = ({ isActive }) =>
+        `px-3 py-1.5 text-sm font-medium rounded-lg transition ${
+            isActive ? 'bg-amber-800 text-white shadow-sm' : 'text-amber-100 hover:bg-amber-700/60'
+        }`;
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <header className="bg-green-700 text-white px-4 py-3 flex items-center justify-between flex-wrap gap-2">
+        <div className="min-h-screen bg-amber-50/50">
+            <header
+                className="text-white px-4 py-3 flex items-center justify-between flex-wrap gap-2 shadow-md"
+                style={{ background: 'linear-gradient(135deg, #78350f 0%, #b45309 100%)' }}
+            >
                 <div className="flex items-center gap-3 flex-wrap">
-                    <h1 className="font-bold text-lg">SokoKuku</h1>
+                    <div className="flex items-center gap-2 mr-1">
+                        <span className="text-xl">🐔</span>
+                        <h1 className="font-extrabold text-lg tracking-tight">SokoKuku</h1>
+                    </div>
                     <nav className="flex flex-wrap gap-1">
                         <NavLink to="/dashboard" end className={navClass}>Overview</NavLink>
                         <NavLink to="/dashboard/businesses" className={navClass}>Businesses</NavLink>
@@ -341,8 +350,8 @@ export default function AdminDashboard() {
                     </nav>
                 </div>
                 <div className="flex items-center gap-3">
-                    <span className="text-green-200 text-sm">{user?.name}</span>
-                    <button onClick={logout} className="text-green-200 text-sm hover:text-white">Sign out</button>
+                    <span className="text-amber-200 text-sm">{user?.name}</span>
+                    <button onClick={logout} className="text-amber-200 text-sm hover:text-white transition">Sign out</button>
                 </div>
             </header>
             <main>
