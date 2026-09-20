@@ -136,6 +136,47 @@ scp -P 22 -r public/build olamtecc@vda6000.is.cc:~/domains/sokokuku.olamtec.co.t
 
 ---
 
+## SSL Certificates
+
+**Current setup:** A single Let's Encrypt wildcard cert covers `*.olamtec.co.tz`, `olamtec.co.tz`,
+and `sandbox.darasa.olamtec.co.tz` (3-level subdomains need explicit SANs — wildcards don't cover them).
+
+**Cert location on server:** `~/.acme.sh/olamtec.co.tz_ecc/`  
+**Renewal:** acme.sh renews automatically; next window ~2026-11-19.
+
+### Re-issuing the wildcard cert
+
+HTTP-01 challenges are blocked by LiteSpeed at server level. **Always use DNS-01 via the DA plugin:**
+
+```bash
+ssh -p 22 olamtecc@vda6000.is.cc
+
+export DA_Api="https://olamtecc:<DA_PASS>@vda6000.is.cc:2222"
+export DA_Api_Insecure=1
+
+~/.acme.sh/acme.sh --issue --server letsencrypt \
+  -d olamtec.co.tz \
+  -d "*.olamtec.co.tz" \
+  -d sandbox.darasa.olamtec.co.tz \
+  --dns dns_da --force
+```
+
+Then deploy to DirectAdmin (this replaces the active cert for `olamtec.co.tz` and all subdomains):
+
+```bash
+export DirectAdmin_ENDPOINT="vda6000.is.cc:2222"
+export DirectAdmin_USERNAME="olamtecc"
+export DirectAdmin_KEY="<DA_PASS>"
+export DirectAdmin_MAIN_DOMAIN="olamtec.co.tz"
+~/.acme.sh/acme.sh --deploy -d olamtec.co.tz --deploy-hook directadmin
+```
+
+> **WARNING:** The deploy hook replaces the ENTIRE `olamtec.co.tz` cert. If the issued cert does not
+> include all required subdomains, those subdomains will break. Always issue for `*.olamtec.co.tz`
+> (not a subdomain-only cert) so all sites remain covered.
+
+---
+
 ## DirectAdmin API (must be called FROM the server)
 
 The DA control panel only accepts API calls from the server's own IP.  
@@ -156,6 +197,8 @@ ssh -p 22 olamtecc@vda6000.is.cc "curl -sk -4 -u 'olamtecc:<DA_PASS>' https://vd
 | Vite 8/Rolldown panics on server (thread limits) | Build locally, SCP `public/build/` |
 | Apache document root is `public_html/`, not `public_html/public/` | `public_html/.htaccess` rewrites to `public/` transparently |
 | `Schema::defaultStringLength(191)` needed | Set in `AppServiceProvider::boot()` |
+| HTTP-01 ACME challenge fails (LiteSpeed blocks it) | Use DNS-01 via `dns_da` acme.sh plugin |
+| DA deploy hook replaces the whole domain cert | Always issue wildcard `*.olamtec.co.tz`, not subdomain-only |
 
 ---
 
