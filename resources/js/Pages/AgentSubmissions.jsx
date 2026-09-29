@@ -145,6 +145,7 @@ function EditForm({ b, onSaved, onCancel }) {
 export default function AgentSubmissions() {
     const [businesses, setBusinesses] = useState(null);
     const [editingId, setEditingId] = useState(null);
+    const [savedMsg, setSavedMsg] = useState('');
 
     const load = () => {
         api.get('/my-surveys').then(r => setBusinesses(r.data.data || []));
@@ -155,6 +156,8 @@ export default function AgentSubmissions() {
     const onSaved = (updated) => {
         setBusinesses(prev => prev.map(b => b.id === updated.id ? updated : b));
         setEditingId(null);
+        setSavedMsg(`"${updated.name}" updated successfully.`);
+        setTimeout(() => setSavedMsg(''), 3000);
     };
 
     if (editingId !== null) {
@@ -169,6 +172,11 @@ export default function AgentSubmissions() {
 
     return (
         <div className="p-4 space-y-3">
+            {savedMsg && (
+                <div className="bg-green-600 text-white text-sm px-4 py-2.5 rounded-xl text-center font-medium">
+                    ✓ {savedMsg}
+                </div>
+            )}
             <h2 className="text-lg font-bold text-gray-800">My Surveys</h2>
             {!businesses ? (
                 <p className="text-gray-400 text-sm">Loading…</p>

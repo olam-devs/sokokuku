@@ -167,6 +167,19 @@ function Clusters() {
 const INPUT = 'w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400';
 const LABEL = 'block text-xs text-gray-500 mb-0.5';
 
+function Toast({ message, type = 'success', onDone }) {
+    useEffect(() => {
+        const t = setTimeout(onDone, 3000);
+        return () => clearTimeout(t);
+    }, [message]);
+    return (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-lg text-white font-medium text-sm whitespace-nowrap
+            ${type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>
+            {type === 'success' ? '✓ ' : '✗ '}{message}
+        </div>
+    );
+}
+
 function BusinessEditForm({ b, onSaved, onCancel }) {
     const [form, setForm] = useState({
         business: {
@@ -431,6 +444,7 @@ function BusinessList() {
     const [businesses, setBusinesses] = useState(null);
     const [filters, setFilters] = useState({ area: '', type: '', product: '', interest: '' });
     const [expanded, setExpanded] = useState(null);
+    const [toast, setToast] = useState(null);
 
     const load = () => {
         const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v));
@@ -462,6 +476,7 @@ function BusinessList() {
 
     return (
         <div className="p-6 space-y-4">
+            {toast && <Toast message={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
             <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-800">Businesses</h2>
                 <button onClick={exportCSV} className="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg">Export CSV</button>
@@ -514,10 +529,13 @@ function BusinessList() {
                                             b={b}
                                             onSaved={updated => {
                                                 setBusinesses(prev => ({ ...prev, data: prev.data.map(x => x.id === updated.id ? updated : x) }));
+                                                setToast({ msg: `"${updated.name}" saved.`, type: 'success' });
                                             }}
                                             onDeleted={id => {
+                                                const name = businesses.data.find(x => x.id === id)?.name;
                                                 setExpanded(null);
                                                 setBusinesses(prev => ({ ...prev, data: prev.data.filter(x => x.id !== id), total: prev.total - 1 }));
+                                                setToast({ msg: `"${name}" deleted.`, type: 'success' });
                                             }}
                                         />
                                     )}
@@ -539,6 +557,7 @@ function FarmerList() {
     const [filters, setFilters] = useState({ area: '', product: '' });
     const [confirmId, setConfirmId] = useState(null);
     const [deleting, setDeleting] = useState(false);
+    const [toast, setToast] = useState(null);
 
     const load = () => {
         const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v));
@@ -548,13 +567,15 @@ function FarmerList() {
     useEffect(() => { load(); }, []);
 
     const handleDelete = async (id) => {
+        const name = farmers?.data?.find(x => x.id === id)?.name;
         setDeleting(true);
         try {
             await api.delete(`/dashboard/farmers/${id}`);
             setFarmers(prev => ({ ...prev, data: prev.data.filter(x => x.id !== id), total: prev.total - 1 }));
             setConfirmId(null);
+            setToast({ msg: `"${name}" deleted.`, type: 'success' });
         } catch {
-            // leave confirm open so user can retry
+            setToast({ msg: 'Delete failed. Please try again.', type: 'error' });
         } finally {
             setDeleting(false);
         }
@@ -574,6 +595,7 @@ function FarmerList() {
 
     return (
         <div className="p-6 space-y-4">
+            {toast && <Toast message={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
             <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-800">Suppliers / Farmers</h2>
                 <button onClick={exportCSV} className="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg">Export CSV</button>

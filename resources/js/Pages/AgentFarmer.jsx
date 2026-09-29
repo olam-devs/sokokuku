@@ -30,7 +30,7 @@ function blankForm() {
 export default function AgentFarmer() {
     const [form, setForm] = useState(blankForm());
     const [saving, setSaving] = useState(false);
-    const [msg, setMsg] = useState('');
+    const [successName, setSuccessName] = useState(null);
     const [error, setError] = useState('');
 
     const set = (field, value) => setForm(f => ({ ...f, [field]: value }));
@@ -83,9 +83,7 @@ export default function AgentFarmer() {
 
         try {
             await api.post('/farmers', payload);
-            setMsg(`Supplier "${form.name}" registered!`);
-            setForm(blankForm());
-            setTimeout(() => setMsg(''), 3000);
+            setSuccessName(form.name);
         } catch (err) {
             setError(err.response?.data?.message || 'Could not save. Check your connection.');
         } finally {
@@ -93,9 +91,32 @@ export default function AgentFarmer() {
         }
     };
 
+    const handleSuccessOk = () => {
+        setSuccessName(null);
+        setError('');
+        setForm(blankForm());
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
     return (
         <div className="pb-10">
-            {msg && <div className="bg-green-600 text-white text-sm px-4 py-2 text-center font-medium">{msg}</div>}
+            {successName && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm text-center space-y-4">
+                        <div className="text-5xl">✅</div>
+                        <h2 className="text-xl font-bold text-gray-800">Supplier Registered!</h2>
+                        <p className="text-gray-600 text-sm">
+                            <span className="font-semibold">{successName}</span> has been saved successfully.
+                        </p>
+                        <button
+                            onClick={handleSuccessOk}
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-base transition"
+                        >
+                            OK — New Supplier
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <form onSubmit={handleSubmit} className="max-w-lg mx-auto px-4 py-4 space-y-5">
 
