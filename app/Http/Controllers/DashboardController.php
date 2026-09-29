@@ -73,7 +73,7 @@ class DashboardController extends Controller
 
     public function mapPoints(): JsonResponse
     {
-        $points = Business::with('latestVisit')
+        $points = Business::with('eggDemand', 'chickenDemand', 'latestVisit', 'fieldAgent')
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
             ->get()
@@ -82,9 +82,33 @@ class DashboardController extends Controller
                 'name' => $b->name,
                 'type' => $b->type,
                 'area' => $b->area,
+                'ward' => $b->ward,
+                'district' => $b->district,
+                'address' => $b->address,
+                'contact_person' => $b->contact_person,
+                'contact_phone' => $b->contact_phone,
                 'lat' => $b->latitude,
                 'lng' => $b->longitude,
                 'interested_in_supply' => $b->latestVisit?->interested_in_supply,
+                'notes' => $b->latestVisit?->notes,
+                'marketing_permission' => $b->latestVisit?->marketing_permission,
+                'agent' => $b->fieldAgent?->name,
+                'egg' => $b->eggDemand ? [
+                    'buys_eggs' => $b->eggDemand->buys_eggs,
+                    'trays_per_purchase' => $b->eggDemand->trays_per_purchase,
+                    'frequency' => $b->eggDemand->frequency,
+                    'price_per_tray' => $b->eggDemand->price_per_tray,
+                    'grade' => $b->eggDemand->grade,
+                    'current_supplier' => $b->eggDemand->current_supplier,
+                ] : null,
+                'chicken' => $b->chickenDemand ? [
+                    'buys_chicken' => $b->chickenDemand->buys_chicken,
+                    'birds_per_week' => $b->chickenDemand->birds_per_week,
+                    'frequency' => $b->chickenDemand->frequency,
+                    'price_per_bird' => $b->chickenDemand->price_per_bird,
+                    'preferred_weight_kg' => $b->chickenDemand->preferred_weight_kg,
+                    'current_supplier' => $b->chickenDemand->current_supplier,
+                ] : null,
             ]);
 
         return response()->json($points);

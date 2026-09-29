@@ -1,13 +1,50 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Routes, Route, NavLink } from 'react-router-dom';
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 import AgentSurvey from './AgentSurvey';
 import AgentFarmer from './AgentFarmer';
 
-const INTEREST_COLOR = { yes: '#16a34a', maybe: '#d97706', no: '#dc2626' };
+const DSM_CENTER = [-6.7924, 39.2083];
+
+function pinSvg(fill, inner) {
+    return `<div style="filter:drop-shadow(0 2px 5px rgba(0,0,0,0.4));width:30px;height:42px">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 42" width="30" height="42">
+            <path d="M15,1C8,1,2,7,2,14.5C2,25,15,41,15,41S28,25,28,14.5C28,7,22,1,15,1Z" fill="${fill}" stroke="white" stroke-width="1.5"/>
+            ${inner}
+        </svg>
+    </div>`;
+}
+
+const PERSON_BUYER = `<circle cx="15" cy="12" r="4.5" fill="white" opacity="0.95"/>
+    <path d="M8.5,22Q8.5,17,15,17Q21.5,17,21.5,22" fill="white" opacity="0.95"/>`;
+
+const PERSON_SUPPLIER = `<circle cx="15" cy="11" r="4.2" fill="white" opacity="0.95"/>
+    <path d="M8.5,20Q8.5,16,15,16Q21.5,16,21.5,20" fill="white" opacity="0.95"/>
+    <line x1="11" y1="23" x2="11" y2="27" stroke="white" stroke-width="1.5" opacity="0.9"/>
+    <line x1="15" y1="22" x2="15" y2="27" stroke="white" stroke-width="1.5" opacity="0.9"/>
+    <line x1="19" y1="23" x2="19" y2="27" stroke="white" stroke-width="1.5" opacity="0.9"/>`;
+
+function makeIcon(fill, inner) {
+    return L.divIcon({
+        html: pinSvg(fill, inner),
+        className: '',
+        iconSize: [30, 42],
+        iconAnchor: [15, 42],
+        popupAnchor: [0, -44],
+    });
+}
+
+const BUYER_ICONS = {
+    yes:     makeIcon('#16a34a', PERSON_BUYER),
+    maybe:   makeIcon('#d97706', PERSON_BUYER),
+    no:      makeIcon('#dc2626', PERSON_BUYER),
+    unknown: makeIcon('#78716c', PERSON_BUYER),
+};
+const SUPPLIER_ICON = makeIcon('#1d4ed8', PERSON_SUPPLIER);
 
 function StatCard({ label, value, sub, color = 'text-gray-800' }) {
     return (
@@ -74,25 +111,142 @@ function Overview() {
     );
 }
 
+function ToggleMarker({ id, position, icon, children, openId, setOpenId }) {
+    const ref = useRef(null);
+    useEffect(() => {
+        const m = ref.current;
+        if (!m) return;
+        if (openId === id) m.openPopup(); else m.closePopup();
+    }, [openId, id]);
+    return (
+        <Marker ref={ref} position={position} icon={icon}
+            eventHandlers={{
+                click: () => setOpenId(p => p === id ? null : id),
+                popupclose: () => setOpenId(p => p === id ? null : p),
+            }}
+        >
+            <Popup autoClose={false} closeOnClick={false} minWidth={260} maxWidth={320}>
+                {children}
+            </Popup>
+        </Marker>
+    );
+}
+
+function BuyerPopup({ p }) {
+    const ic = { yes: 'bg-green-100 text-green-800', maybe: 'bg-yellow-100 text-yellow-800', no: 'bg-red-100 text-red-800' };
+    return (
+        <div className="text-xs space-y-2 leading-relaxed" style={{ minWidth: 240 }}>
+            <div className="flex items-start justify-between gap-2">
+                <div>
+                    <p className="font-bold text-sm text-gray-800">{p.name}</p>
+                    <p className="text-gray-500 capitalize">{p.type} · {p.area}</p>
+                    {(p.ward || p.district) && <p className="text-gray-400">{[p.ward, p.district].filter(Boolean).join(', ')}</p>}
+                </div>
+                {p.interested_in_supply && (
+                    <span className={`shrink-0 px-2 py-0.5 rounded-full font-medium text-xs ${ic[p.interested_in_supply] || ''}`}>
+                        {p.interested_in_supply}
+                    </span>
+                )}
+            </div>
+            {(p.contact_person || p.contact_phone) && (
+                <div className="border-t pt-1.5 space-y-0.5">
+                    {p.contact_person && <p><span className="text-gray-400">Contact:</span> {p.contact_person}</p>}
+                    {p.contact_phone && <p><span className="text-gray-400">Phone:</span> <a href={`tel:${p.contact_phone}`} className="text-amber-700 font-medium">{p.contact_phone}</a></p>}
+                    {p.address && <p><span className="text-gray-400">Address:</span> {p.address}</p>}
+                </div>
+            )}
+            {(p.egg?.buys_eggs || p.chicken?.buys_chicken) && (
+                <div className="border-t pt-1.5 space-y-1">
+                    {p.egg?.buys_eggs && (
+                        <div>
+                            <p className="font-medium text-green-700">🥚 Eggs</p>
+                            <p>{p.egg.trays_per_purchase} trays · {p.egg.frequency || '—'}</p>
+                            {p.egg.price_per_tray ? <p>TSh {Number(p.egg.price_per_tray).toLocaleString()}/tray{p.egg.grade ? ` · ${p.egg.grade}` : ''}</p> : null}
+                            {p.egg.current_supplier && <p className="text-gray-400">Supplier: {p.egg.current_supplier}</p>}
+                        </div>
+                    )}
+                    {p.chicken?.buys_chicken && (
+                        <div>
+                            <p className="font-medium text-blue-700">🐔 Chicken</p>
+                            <p>{p.chicken.birds_per_week} birds/wk · {p.chicken.frequency || '—'}</p>
+                            {p.chicken.price_per_bird ? <p>TSh {Number(p.chicken.price_per_bird).toLocaleString()}/bird{p.chicken.preferred_weight_kg ? ` · ${p.chicken.preferred_weight_kg}kg` : ''}</p> : null}
+                            {p.chicken.current_supplier && <p className="text-gray-400">Supplier: {p.chicken.current_supplier}</p>}
+                        </div>
+                    )}
+                </div>
+            )}
+            {p.notes && <div className="border-t pt-1.5"><p className="text-gray-600 italic">"{p.notes}"</p></div>}
+            {(p.marketing_permission || p.agent) && (
+                <div className="border-t pt-1.5 space-y-0.5">
+                    {p.marketing_permission && <p className="text-green-700 font-medium">✓ Marketing permission</p>}
+                    {p.agent && <p className="text-gray-400">Agent: {p.agent}</p>}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function SupplierPopup({ p }) {
+    return (
+        <div className="text-xs space-y-2 leading-relaxed" style={{ minWidth: 240 }}>
+            <div>
+                <p className="font-bold text-sm text-gray-800">🌾 {p.name}</p>
+                <p className="text-gray-500">{p.area}{p.ward ? ` · ${p.ward}` : ''}{p.district ? `, ${p.district}` : ''}</p>
+                {p.address && <p className="text-gray-400">{p.address}</p>}
+            </div>
+            {p.phone && (
+                <div className="border-t pt-1.5">
+                    <p><span className="text-gray-400">Phone:</span> <a href={`tel:${p.phone}`} className="text-blue-700 font-medium">{p.phone}</a></p>
+                </div>
+            )}
+            {(p.egg || p.chicken) && (
+                <div className="border-t pt-1.5 space-y-1">
+                    {p.egg && (
+                        <div>
+                            <p className="font-medium text-green-700">🥚 Eggs</p>
+                            {p.egg.egg_trays_per_week ? <p>{p.egg.egg_trays_per_week} trays/wk</p> : null}
+                            {p.egg.egg_price_per_tray ? <p>TSh {Number(p.egg.egg_price_per_tray).toLocaleString()}/tray</p> : null}
+                        </div>
+                    )}
+                    {p.chicken && (
+                        <div>
+                            <p className="font-medium text-blue-700">🐔 Chicken</p>
+                            {p.chicken.chicken_birds_per_week ? <p>{p.chicken.chicken_birds_per_week} birds/wk</p> : null}
+                            {p.chicken.chicken_price_per_bird ? <p>TSh {Number(p.chicken.chicken_price_per_bird).toLocaleString()}/bird</p> : null}
+                            {p.chicken.chicken_avg_weight_kg ? <p>{p.chicken.chicken_avg_weight_kg}kg avg</p> : null}
+                        </div>
+                    )}
+                </div>
+            )}
+            {(p.can_deliver || p.can_collect) && (
+                <div className="border-t pt-1.5">
+                    {p.can_deliver && <p className="text-gray-600">🚚 Can deliver</p>}
+                    {p.can_collect && <p className="text-gray-600">🏠 Buyer can collect</p>}
+                </div>
+            )}
+            {p.notes && <div className="border-t pt-1.5"><p className="text-gray-600 italic">"{p.notes}"</p></div>}
+            {p.agent && <div className="border-t pt-1.5"><p className="text-gray-400">Agent: {p.agent}</p></div>}
+        </div>
+    );
+}
+
 function MapView() {
     const [buyers, setBuyers] = useState([]);
     const [suppliers, setSuppliers] = useState([]);
     const [show, setShow] = useState({ buyers: true, suppliers: true });
+    const [openId, setOpenId] = useState(null);
 
     useEffect(() => {
         api.get('/dashboard/map').then(r => setBuyers(r.data));
         api.get('/dashboard/farmers/map').then(r => setSuppliers(r.data));
     }, []);
 
-    const all = [...(show.buyers ? buyers : []), ...(show.suppliers ? suppliers : [])];
-    const center = all.length ? [all[0].lat, all[0].lng] : [-6.7924, 39.2083];
-
     return (
         <div className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
                 <h2 className="text-xl font-bold text-gray-800">Map</h2>
                 <div className="flex gap-3 text-sm">
-                    {[['buyers', '🏪 Buyers', buyers.length], ['suppliers', '🌾 Suppliers', suppliers.length]].map(([k, label, count]) => (
+                    {[['buyers', '👤 Clients', buyers.length], ['suppliers', '🌾 Suppliers', suppliers.length]].map(([k, label, count]) => (
                         <label key={k} className="flex items-center gap-1.5 cursor-pointer">
                             <input type="checkbox" checked={show[k]} onChange={e => setShow(s => ({ ...s, [k]: e.target.checked }))} className="accent-amber-600" />
                             <span>{label} ({count})</span>
@@ -100,26 +254,40 @@ function MapView() {
                     ))}
                 </div>
             </div>
-            <div className="rounded-xl overflow-hidden shadow-sm" style={{ height: 500 }}>
-                <MapContainer center={center} zoom={12} style={{ height: '100%', width: '100%' }}>
+            <div className="rounded-xl overflow-hidden shadow-sm" style={{ height: 520 }}>
+                <MapContainer center={DSM_CENTER} zoom={13} style={{ height: '100%', width: '100%' }}>
                     <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="© OpenStreetMap" />
                     {show.buyers && buyers.map(p => (
-                        <CircleMarker key={`b-${p.id}`} center={[p.lat, p.lng]} radius={7} fillColor={INTEREST_COLOR[p.interested_in_supply] || '#6b7280'} fillOpacity={0.85} stroke={false}>
-                            <Popup><strong>{p.name}</strong><br />{p.type} · {p.area}<br />Interest: {p.interested_in_supply ?? 'unknown'}</Popup>
-                        </CircleMarker>
+                        <ToggleMarker key={`b-${p.id}`} id={`b-${p.id}`} position={[p.lat, p.lng]}
+                            icon={BUYER_ICONS[p.interested_in_supply] || BUYER_ICONS.unknown}
+                            openId={openId} setOpenId={setOpenId}>
+                            <BuyerPopup p={p} />
+                        </ToggleMarker>
                     ))}
                     {show.suppliers && suppliers.map(p => (
-                        <CircleMarker key={`s-${p.id}`} center={[p.lat, p.lng]} radius={8} fillColor="#3b82f6" fillOpacity={0.85} color="#1d4ed8" weight={2}>
-                            <Popup><strong>🌾 {p.name}</strong><br />{p.area}{p.district ? ` · ${p.district}` : ''}<br />Products: {p.products.join(', ')}</Popup>
-                        </CircleMarker>
+                        <ToggleMarker key={`s-${p.id}`} id={`s-${p.id}`} position={[p.lat, p.lng]}
+                            icon={SUPPLIER_ICON}
+                            openId={openId} setOpenId={setOpenId}>
+                            <SupplierPopup p={p} />
+                        </ToggleMarker>
                     ))}
                 </MapContainer>
             </div>
             <div className="flex flex-wrap gap-4 text-sm">
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full inline-block bg-green-600" />Buyer interested</span>
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full inline-block bg-yellow-500" />Buyer maybe</span>
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full inline-block bg-red-500" />Buyer no</span>
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full border-2 border-blue-700 inline-block bg-blue-400" />Supplier</span>
+                {[
+                    ['#16a34a', 'Client — interested', PERSON_BUYER],
+                    ['#d97706', 'Client — maybe', PERSON_BUYER],
+                    ['#dc2626', 'Client — not interested', PERSON_BUYER],
+                    ['#1d4ed8', 'Supplier / farmer', PERSON_SUPPLIER],
+                ].map(([color, label]) => (
+                    <span key={label} className="flex items-center gap-1.5">
+                        <svg viewBox="0 0 16 22" width="12" height="17" style={{ flexShrink: 0 }}>
+                            <path d="M8,1C4.5,1,2,3.5,2,7C2,12,8,21,8,21S14,12,14,7C14,3.5,11.5,1,8,1Z" fill={color}/>
+                        </svg>
+                        {label}
+                    </span>
+                ))}
+                <span className="text-gray-400 text-xs self-center">· Tap pin to see full details · Tap again to close</span>
             </div>
         </div>
     );

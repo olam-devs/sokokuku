@@ -125,18 +125,27 @@ class FarmerController extends Controller
 
     public function mapPoints(): JsonResponse
     {
-        $points = Farmer::with('products')
+        $points = Farmer::with('products', 'fieldAgent')
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
             ->get()
             ->map(fn ($f) => [
                 'id' => $f->id,
                 'name' => $f->name,
+                'phone' => $f->phone,
                 'area' => $f->area,
+                'ward' => $f->ward,
                 'district' => $f->district,
+                'address' => $f->address,
                 'lat' => $f->latitude,
                 'lng' => $f->longitude,
+                'can_deliver' => $f->can_deliver,
+                'can_collect' => $f->can_collect,
+                'notes' => $f->notes,
+                'agent' => $f->fieldAgent?->name,
                 'products' => $f->products->pluck('product_type'),
+                'egg' => $f->products->firstWhere('product_type', 'egg'),
+                'chicken' => $f->products->firstWhere('product_type', 'chicken'),
             ]);
 
         return response()->json($points);
