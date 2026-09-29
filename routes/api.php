@@ -33,5 +33,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/dashboard/farmers', [FarmerController::class, 'index']);
         Route::get('/dashboard/farmers/map', [FarmerController::class, 'mapPoints']);
         Route::delete('/dashboard/businesses/{business}', [DashboardController::class, 'deleteBusiness']);
+        Route::delete('/dashboard/farmers/{farmer}', [FarmerController::class, 'destroy']);
     });
 });

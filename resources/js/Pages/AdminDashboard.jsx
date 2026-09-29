@@ -537,6 +537,8 @@ function BusinessList() {
 function FarmerList() {
     const [farmers, setFarmers] = useState(null);
     const [filters, setFilters] = useState({ area: '', product: '' });
+    const [confirmId, setConfirmId] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     const load = () => {
         const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v));
@@ -544,6 +546,19 @@ function FarmerList() {
     };
 
     useEffect(() => { load(); }, []);
+
+    const handleDelete = async (id) => {
+        setDeleting(true);
+        try {
+            await api.delete(`/dashboard/farmers/${id}`);
+            setFarmers(prev => ({ ...prev, data: prev.data.filter(x => x.id !== id), total: prev.total - 1 }));
+            setConfirmId(null);
+        } catch {
+            // leave confirm open so user can retry
+        } finally {
+            setDeleting(false);
+        }
+    };
 
     const exportCSV = () => {
         if (!farmers?.data) return;
@@ -576,7 +591,7 @@ function FarmerList() {
                 <div className="bg-white rounded-xl shadow-sm overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-                            <tr>{['Name', 'Phone', 'Area', 'District', 'Eggs/wk', 'Chickens/wk', 'Delivery', 'Agent'].map(h => <th key={h} className="text-left px-4 py-2">{h}</th>)}</tr>
+                            <tr>{['Name', 'Phone', 'Area', 'District', 'Eggs/wk', 'Chickens/wk', 'Delivery', 'Agent', ''].map(h => <th key={h} className="text-left px-4 py-2">{h}</th>)}</tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {farmers.data?.map(f => {
@@ -592,6 +607,26 @@ function FarmerList() {
                                         <td className="px-4 py-2 text-xs text-blue-700">{chk ? `${chk.chicken_birds_per_week} birds` : '—'}</td>
                                         <td className="px-4 py-2 text-xs text-gray-500">{f.can_deliver ? '🚚 Delivers' : ''}{f.can_deliver && f.can_collect ? ' · ' : ''}{f.can_collect ? '🏠 Collect' : ''}</td>
                                         <td className="px-4 py-2 text-gray-400 text-xs">{f.field_agent?.name}</td>
+                                        <td className="px-4 py-2 text-right">
+                                            {confirmId === f.id ? (
+                                                <span className="flex items-center justify-end gap-1.5 flex-wrap">
+                                                    <span className="text-xs text-red-700 font-medium">Delete?</span>
+                                                    <button onClick={() => handleDelete(f.id)} disabled={deleting}
+                                                        className="text-xs bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded-lg font-medium disabled:opacity-50">
+                                                        {deleting ? '…' : 'Yes'}
+                                                    </button>
+                                                    <button onClick={() => setConfirmId(null)}
+                                                        className="text-xs border px-2.5 py-1 rounded-lg hover:bg-gray-50">
+                                                        No
+                                                    </button>
+                                                </span>
+                                            ) : (
+                                                <button onClick={() => setConfirmId(f.id)}
+                                                    className="text-xs bg-red-50 hover:bg-red-100 text-red-700 px-3 py-1 rounded-lg font-medium">
+                                                    Delete
+                                                </button>
+                                            )}
+                                        </td>
                                     </tr>
                                 );
                             })}

@@ -69,6 +69,14 @@ class FarmerController extends Controller
         return response()->json($query->paginate(50));
     }
 
+    public function destroy(Farmer $farmer): JsonResponse
+    {
+        $farmer->products()->delete();
+        $farmer->delete();
+
+        return response()->json(['message' => 'Deleted']);
+    }
+
     public function myFarmers(Request $request): JsonResponse
     {
         $farmers = Farmer::with('products')
