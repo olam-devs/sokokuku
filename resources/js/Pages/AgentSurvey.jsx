@@ -26,7 +26,7 @@ export default function AgentSurvey({ onNavigate, pendingCount: externalPending,
     const [pending, setPending] = useState(0);
     const [syncing, setSyncing] = useState(false);
     const [msg, setMsg] = useState('');
-    const [submitted, setSubmitted] = useState(false);
+    const [successInfo, setSuccessInfo] = useState(null);
 
     useEffect(() => { pendingCount().then(setPending); }, []);
 
@@ -82,23 +82,46 @@ export default function AgentSurvey({ onNavigate, pendingCount: externalPending,
     const handleSubmit = async e => {
         e.preventDefault();
         const survey = { ...form, visited_at: new Date().toISOString() };
+        let offline = false;
         try {
             await api.post('/surveys', survey);
-            setMsg('Saved!');
         } catch {
             await enqueue(survey);
             const c = await pendingCount();
             setPending(c);
-            setMsg(`Saved offline. ${c} pending.`);
+            offline = true;
         }
-        setSubmitted(true);
-        setTimeout(() => { setForm(blankForm()); setSubmitted(false); setMsg(''); }, 2500);
+        setSuccessInfo({ name: form.business.name, offline });
+    };
+
+    const handleSuccessOk = () => {
+        setSuccessInfo(null);
+        setMsg('');
+        setForm(blankForm());
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     return (
         <div className="pb-24">
-            {msg && <div className="bg-green-100 text-green-800 text-sm px-4 py-2 text-center sticky top-0 z-10">{msg}</div>}
-            {submitted && <div className="bg-green-600 text-white text-sm px-4 py-2 text-center font-medium">Saved! Starting new form…</div>}
+            {/* Success modal */}
+            {successInfo && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm text-center space-y-4">
+                        <div className="text-5xl">✅</div>
+                        <h2 className="text-xl font-bold text-gray-800">Survey Saved!</h2>
+                        <p className="text-gray-600 text-sm">
+                            <span className="font-semibold">{successInfo.name}</span> has been recorded
+                            {successInfo.offline ? ' offline and will sync when you have internet.' : ' and synced successfully.'}
+                        </p>
+                        <button
+                            onClick={handleSuccessOk}
+                            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl text-base transition"
+                        >
+                            OK — New Survey
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <form onSubmit={handleSubmit} className="max-w-lg mx-auto px-4 py-4 space-y-5">
 
