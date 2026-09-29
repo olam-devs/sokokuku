@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Farmer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 
 class FarmerController extends Controller
@@ -66,6 +67,52 @@ class FarmerController extends Controller
         }
 
         return response()->json($query->paginate(50));
+    }
+
+    public function myFarmers(Request $request): JsonResponse
+    {
+        $farmers = Farmer::with('products')
+            ->where('field_agent_id', $request->user()->id)
+            ->orderByDesc('created_at')
+            ->paginate(50);
+
+        return response()->json($farmers);
+    }
+
+    public function update(Request $request, Farmer $farmer): JsonResponse
+    {
+        $user = $request->user();
+        if ($user->role !== 'admin' && $farmer->field_agent_id !== $user->id) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'phone' => 'required|string|max:20',
+            'address' => 'nullable|string|max:255',
+            'area' => 'required|string|max:255',
+            'can_deliver' => 'boolean',
+            'can_collect' => 'boolean',
+            'notes' => 'nullable|string|max:1000',
+            'products' => 'required|array|min:1',
+            'products.*.product_type' => 'required|in:egg,chicken',
+            'products.*.egg_trays_per_week' => 'nullable|integer|min:0',
+            'products.*.egg_price_per_tray' => 'nullable|integer|min:0',
+            'products.*.chicken_birds_per_week' => 'nullable|integer|min:0',
+            'products.*.chicken_price_per_bird' => 'nullable|integer|min:0',
+            'products.*.chicken_avg_weight_kg' => 'nullable|numeric|min:0',
+        ]);
+
+        DB::transaction(function () use ($farmer, $data) {
+            $farmer->update(Arr::except($data, ['products']));
+            $farmer->products()->delete();
+            foreach ($data['products'] as $product) {
+                $farmer->products()->create($product);
+            }
+        });
+
+        $farmer->load('products');
+        return response()->json($farmer);
     }
 
     public function mapPoints(): JsonResponse

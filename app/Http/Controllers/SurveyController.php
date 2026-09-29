@@ -74,6 +74,65 @@ class SurveyController extends Controller
         return response()->json(['message' => 'Survey synced'], 201);
     }
 
+    public function mySurveys(Request $request): JsonResponse
+    {
+        $businesses = Business::with('eggDemand', 'chickenDemand', 'latestVisit')
+            ->where('field_agent_id', $request->user()->id)
+            ->orderByDesc('created_at')
+            ->paginate(50);
+
+        return response()->json($businesses);
+    }
+
+    public function update(Request $request, Business $business): JsonResponse
+    {
+        $user = $request->user();
+        if ($user->role !== 'admin' && $business->field_agent_id !== $user->id) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $data = $request->validate([
+            'business.name' => 'required|string|max:255',
+            'business.type' => 'required|in:hotel,restaurant,shop,supermarket,institution,other',
+            'business.area' => 'required|string|max:255',
+            'business.address' => 'nullable|string|max:500',
+            'business.contact_person' => 'nullable|string|max:255',
+            'business.contact_phone' => 'nullable|string|max:30',
+            'egg.buys_eggs' => 'required|boolean',
+            'egg.trays_per_purchase' => 'nullable|integer|min:1',
+            'egg.frequency' => 'nullable|string|max:80',
+            'egg.price_per_tray' => 'nullable|integer|min:0',
+            'egg.grade' => 'nullable|string|max:50',
+            'egg.current_supplier' => 'nullable|string|max:255',
+            'chicken.buys_chicken' => 'required|boolean',
+            'chicken.birds_per_week' => 'nullable|integer|min:1',
+            'chicken.price_per_bird' => 'nullable|integer|min:0',
+            'chicken.preferred_weight_kg' => 'nullable|numeric|min:0',
+            'chicken.frequency' => 'nullable|string|max:80',
+            'chicken.current_supplier' => 'nullable|string|max:255',
+            'interested_in_supply' => 'required|in:yes,maybe,no',
+            'marketing_permission' => 'required|boolean',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        DB::transaction(function () use ($business, $data) {
+            $business->update($data['business']);
+            $business->eggDemand()->updateOrCreate([], $data['egg']);
+            $business->chickenDemand()->updateOrCreate([], $data['chicken']);
+            $visit = $business->latestVisit;
+            if ($visit) {
+                $visit->update([
+                    'interested_in_supply' => $data['interested_in_supply'],
+                    'marketing_permission' => $data['marketing_permission'],
+                    'notes' => $data['notes'] ?? null,
+                ]);
+            }
+        });
+
+        $business->load('eggDemand', 'chickenDemand', 'latestVisit', 'fieldAgent');
+        return response()->json($business);
+    }
+
     public function syncBatch(Request $request): JsonResponse
     {
         $request->validate([

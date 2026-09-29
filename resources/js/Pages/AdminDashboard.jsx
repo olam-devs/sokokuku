@@ -164,13 +164,175 @@ function Clusters() {
     );
 }
 
-function DetailRow({ b }) {
+const INPUT = 'w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400';
+const LABEL = 'block text-xs text-gray-500 mb-0.5';
+
+function BusinessEditForm({ b, onSaved, onCancel }) {
+    const [form, setForm] = useState({
+        business: {
+            name: b.name || '',
+            type: b.type || '',
+            area: b.area || '',
+            address: b.address || '',
+            contact_person: b.contact_person || '',
+            contact_phone: b.contact_phone || '',
+        },
+        egg: {
+            buys_eggs: !!b.egg_demand?.buys_eggs,
+            trays_per_purchase: b.egg_demand?.trays_per_purchase || '',
+            frequency: b.egg_demand?.frequency || '',
+            price_per_tray: b.egg_demand?.price_per_tray || '',
+            grade: b.egg_demand?.grade || '',
+            current_supplier: b.egg_demand?.current_supplier || '',
+        },
+        chicken: {
+            buys_chicken: !!b.chicken_demand?.buys_chicken,
+            birds_per_week: b.chicken_demand?.birds_per_week || '',
+            frequency: b.chicken_demand?.frequency || '',
+            price_per_bird: b.chicken_demand?.price_per_bird || '',
+            preferred_weight_kg: b.chicken_demand?.preferred_weight_kg || '',
+            current_supplier: b.chicken_demand?.current_supplier || '',
+        },
+        interested_in_supply: b.latest_visit?.interested_in_supply || 'maybe',
+        marketing_permission: !!b.latest_visit?.marketing_permission,
+        notes: b.latest_visit?.notes || '',
+    });
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+
+    const sf = (section, field, value) => {
+        if (section) setForm(f => ({ ...f, [section]: { ...f[section], [field]: value } }));
+        else setForm(f => ({ ...f, [field]: value }));
+    };
+
+    const save = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setSaving(true); setError('');
+        try {
+            const { data } = await api.put(`/surveys/${b.id}`, form);
+            onSaved(data);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Save failed. Please try again.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <form onSubmit={save} onClick={e => e.stopPropagation()} className="space-y-4">
+            <p className="font-semibold text-gray-700 text-sm">Editing: {b.name}</p>
+            {/* Business info */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div><label className={LABEL}>Business name *</label><input className={INPUT} value={form.business.name} onChange={e => sf('business','name',e.target.value)} required /></div>
+                <div><label className={LABEL}>Type *</label>
+                    <select className={INPUT} value={form.business.type} onChange={e => sf('business','type',e.target.value)} required>
+                        <option value="">Select…</option>
+                        {['hotel','restaurant','shop','supermarket','institution','other'].map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                </div>
+                <div><label className={LABEL}>Area *</label><input className={INPUT} value={form.business.area} onChange={e => sf('business','area',e.target.value)} required /></div>
+                <div><label className={LABEL}>Address</label><input className={INPUT} value={form.business.address} onChange={e => sf('business','address',e.target.value)} /></div>
+                <div><label className={LABEL}>Contact person</label><input className={INPUT} value={form.business.contact_person} onChange={e => sf('business','contact_person',e.target.value)} /></div>
+                <div><label className={LABEL}>Contact phone</label><input className={INPUT} value={form.business.contact_phone} onChange={e => sf('business','contact_phone',e.target.value)} /></div>
+            </div>
+            {/* Egg demand */}
+            <div className="border rounded-lg p-3 space-y-2 bg-green-50/40">
+                <label className="flex items-center gap-2 text-sm font-medium text-green-800 cursor-pointer">
+                    <input type="checkbox" checked={form.egg.buys_eggs} onChange={e => sf('egg','buys_eggs',e.target.checked)} className="accent-green-600" />
+                    Buys eggs
+                </label>
+                {form.egg.buys_eggs && (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        <div><label className={LABEL}>Trays/purchase</label><input type="number" className={INPUT} value={form.egg.trays_per_purchase} onChange={e => sf('egg','trays_per_purchase',e.target.value)} min="1" /></div>
+                        <div><label className={LABEL}>Frequency</label><input className={INPUT} value={form.egg.frequency} onChange={e => sf('egg','frequency',e.target.value)} /></div>
+                        <div><label className={LABEL}>Price/tray (TSh)</label><input type="number" className={INPUT} value={form.egg.price_per_tray} onChange={e => sf('egg','price_per_tray',e.target.value)} min="0" /></div>
+                        <div><label className={LABEL}>Grade</label><input className={INPUT} value={form.egg.grade} onChange={e => sf('egg','grade',e.target.value)} /></div>
+                        <div className="md:col-span-2"><label className={LABEL}>Current supplier</label><input className={INPUT} value={form.egg.current_supplier} onChange={e => sf('egg','current_supplier',e.target.value)} /></div>
+                    </div>
+                )}
+            </div>
+            {/* Chicken demand */}
+            <div className="border rounded-lg p-3 space-y-2 bg-blue-50/40">
+                <label className="flex items-center gap-2 text-sm font-medium text-blue-800 cursor-pointer">
+                    <input type="checkbox" checked={form.chicken.buys_chicken} onChange={e => sf('chicken','buys_chicken',e.target.checked)} className="accent-blue-600" />
+                    Buys chicken
+                </label>
+                {form.chicken.buys_chicken && (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        <div><label className={LABEL}>Birds/week</label><input type="number" className={INPUT} value={form.chicken.birds_per_week} onChange={e => sf('chicken','birds_per_week',e.target.value)} min="1" /></div>
+                        <div><label className={LABEL}>Frequency</label><input className={INPUT} value={form.chicken.frequency} onChange={e => sf('chicken','frequency',e.target.value)} /></div>
+                        <div><label className={LABEL}>Price/bird (TSh)</label><input type="number" className={INPUT} value={form.chicken.price_per_bird} onChange={e => sf('chicken','price_per_bird',e.target.value)} min="0" /></div>
+                        <div><label className={LABEL}>Pref. weight (kg)</label><input type="number" step="0.1" className={INPUT} value={form.chicken.preferred_weight_kg} onChange={e => sf('chicken','preferred_weight_kg',e.target.value)} min="0" /></div>
+                        <div className="md:col-span-2"><label className={LABEL}>Current supplier</label><input className={INPUT} value={form.chicken.current_supplier} onChange={e => sf('chicken','current_supplier',e.target.value)} /></div>
+                    </div>
+                )}
+            </div>
+            {/* Visit */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                    <label className={LABEL}>Interest in supply *</label>
+                    <select className={INPUT} value={form.interested_in_supply} onChange={e => sf(null,'interested_in_supply',e.target.value)}>
+                        <option value="yes">Yes</option>
+                        <option value="maybe">Maybe</option>
+                        <option value="no">No</option>
+                    </select>
+                </div>
+                <div className="flex items-end pb-1">
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="checkbox" checked={form.marketing_permission} onChange={e => sf(null,'marketing_permission',e.target.checked)} className="accent-amber-600" />
+                        Marketing permission granted
+                    </label>
+                </div>
+                <div className="md:col-span-2">
+                    <label className={LABEL}>Notes</label>
+                    <textarea className={INPUT} rows={3} value={form.notes} onChange={e => sf(null,'notes',e.target.value)} />
+                </div>
+            </div>
+            {error && <p className="text-red-600 text-xs">{error}</p>}
+            <div className="flex gap-2">
+                <button type="submit" disabled={saving} className="bg-amber-600 text-white text-sm px-5 py-2 rounded-lg hover:bg-amber-700 disabled:opacity-50 font-medium">
+                    {saving ? 'Saving…' : 'Save changes'}
+                </button>
+                <button type="button" onClick={e => { e.stopPropagation(); onCancel(); }} className="text-sm px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    );
+}
+
+function DetailRow({ b, onSaved }) {
+    const [editing, setEditing] = useState(false);
     const visit = b.latest_visit;
     const egg = b.egg_demand;
     const chk = b.chicken_demand;
+
+    if (editing) {
+        return (
+            <tr className="bg-amber-50 border-b border-amber-200">
+                <td colSpan={8} className="px-5 py-4">
+                    <BusinessEditForm
+                        b={b}
+                        onSaved={(updated) => { setEditing(false); onSaved(updated); }}
+                        onCancel={() => setEditing(false)}
+                    />
+                </td>
+            </tr>
+        );
+    }
+
     return (
         <tr className="bg-amber-50/60 border-b border-amber-100">
             <td colSpan={8} className="px-5 py-4">
+                <div className="flex justify-end mb-2">
+                    <button
+                        onClick={e => { e.stopPropagation(); setEditing(true); }}
+                        className="text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1 rounded-lg font-medium"
+                    >
+                        Edit
+                    </button>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     {/* Contact */}
                     <div className="space-y-1">
@@ -311,7 +473,14 @@ function BusinessList() {
                                         </td>
                                         <td className="px-4 py-2 text-gray-400 text-xs">{b.field_agent?.name}</td>
                                     </tr>
-                                    {expanded === b.id && <DetailRow b={b} />}
+                                    {expanded === b.id && (
+                                        <DetailRow
+                                            b={b}
+                                            onSaved={updated => {
+                                                setBusinesses(prev => ({ ...prev, data: prev.data.map(x => x.id === updated.id ? updated : x) }));
+                                            }}
+                                        />
+                                    )}
                                 </React.Fragment>
                             ))}
                         </tbody>

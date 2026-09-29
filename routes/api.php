@@ -17,6 +17,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/surveys/batch', [SurveyController::class, 'syncBatch']);
     Route::post('/farmers', [FarmerController::class, 'store']);
 
+    // Edit own submissions (agent) or any (admin)
+    Route::put('/surveys/{business}', [SurveyController::class, 'update']);
+    Route::put('/farmers/{farmer}', [FarmerController::class, 'update']);
+    Route::get('/my-surveys', [SurveyController::class, 'mySurveys']);
+    Route::get('/my-farmers', [FarmerController::class, 'myFarmers']);
+
     // Admin routes
     Route::middleware('admin')->group(function () {
         Route::get('/dashboard/stats', [DashboardController::class, 'stats']);

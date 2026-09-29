@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './Pages/Login';
 import AgentSurvey from './Pages/AgentSurvey';
 import AgentFarmer from './Pages/AgentFarmer';
+import AgentSubmissions from './Pages/AgentSubmissions';
 import AdminDashboard from './Pages/AdminDashboard';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import '../css/app.css';
@@ -17,8 +18,9 @@ function PrivateRoute({ children, role }) {
 }
 
 const AGENT_TABS = [
-    { key: 'survey', label: '📋 Survey', emoji: '📋' },
-    { key: 'supplier', label: '🌾 Supplier', emoji: '🌾' },
+    { key: 'survey', emoji: '📋', label: 'Survey' },
+    { key: 'mysurveys', emoji: '📝', label: 'My Surveys' },
+    { key: 'supplier', emoji: '🌾', label: 'Supplier' },
 ];
 
 function AgentShell() {
@@ -46,7 +48,9 @@ function AgentShell() {
 
             {/* Tab content */}
             <div className="pb-16">
-                {tab === 'survey' ? <AgentSurvey /> : <AgentFarmer />}
+                {tab === 'survey' && <AgentSurvey />}
+                {tab === 'mysurveys' && <AgentSubmissions />}
+                {tab === 'supplier' && <AgentFarmer />}
             </div>
 
             {/* Bottom tabs */}
@@ -55,13 +59,13 @@ function AgentShell() {
                     <button
                         key={t.key}
                         onClick={() => setTab(t.key)}
-                        className={`flex-1 py-3 text-sm font-medium transition flex flex-col items-center gap-0.5
+                        className={`flex-1 py-3 font-medium transition flex flex-col items-center gap-0.5
                             ${tab === t.key
                                 ? 'text-amber-700 border-t-2 border-amber-600 bg-amber-50'
                                 : 'text-gray-400 border-t-2 border-transparent'}`}
                     >
                         <span className="text-base">{t.emoji}</span>
-                        <span className="text-xs">{t.key === 'survey' ? 'Survey' : 'Supplier'}</span>
+                        <span className="text-xs">{t.label}</span>
                     </button>
                 ))}
             </nav>
