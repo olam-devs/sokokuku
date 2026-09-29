@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Business;
 use App\Models\SurveyVisit;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -45,31 +46,36 @@ class SurveyController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
 
-        // Deduplicate by offline_uuid so syncing twice is safe
+        // Deduplicate by offline_uuid — check first as a fast path
         if (SurveyVisit::where('offline_uuid', $data['offline_uuid'])->exists()) {
             return response()->json(['message' => 'Already synced'], 200);
         }
 
-        DB::transaction(function () use ($data, $request) {
-            $business = Business::create([
-                ...$data['business'],
-                'field_agent_id' => $request->user()->id,
-            ]);
+        try {
+            DB::transaction(function () use ($data, $request) {
+                $business = Business::create([
+                    ...$data['business'],
+                    'field_agent_id' => $request->user()->id,
+                ]);
 
-            $business->eggDemand()->create($data['egg']);
-            $business->chickenDemand()->create($data['chicken']);
+                $business->eggDemand()->create($data['egg']);
+                $business->chickenDemand()->create($data['chicken']);
 
-            SurveyVisit::create([
-                'business_id' => $business->id,
-                'field_agent_id' => $request->user()->id,
-                'interested_in_supply' => $data['interested_in_supply'],
-                'marketing_permission' => $data['marketing_permission'],
-                'notes' => $data['notes'] ?? null,
-                'offline_uuid' => $data['offline_uuid'],
-                'visited_at' => $data['visited_at'],
-                'synced_at' => now(),
-            ]);
-        });
+                SurveyVisit::create([
+                    'business_id' => $business->id,
+                    'field_agent_id' => $request->user()->id,
+                    'interested_in_supply' => $data['interested_in_supply'],
+                    'marketing_permission' => $data['marketing_permission'],
+                    'notes' => $data['notes'] ?? null,
+                    'offline_uuid' => $data['offline_uuid'],
+                    'visited_at' => $data['visited_at'],
+                    'synced_at' => now(),
+                ]);
+            });
+        } catch (UniqueConstraintViolationException) {
+            // Race condition: two syncs of the same UUID arrived simultaneously
+            return response()->json(['message' => 'Already synced'], 200);
+        }
 
         return response()->json(['message' => 'Survey synced'], 201);
     }
