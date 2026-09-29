@@ -162,9 +162,75 @@ function Clusters() {
     );
 }
 
+function DetailRow({ b }) {
+    const visit = b.latest_visit;
+    const egg = b.egg_demand;
+    const chk = b.chicken_demand;
+    return (
+        <tr className="bg-amber-50/60 border-b border-amber-100">
+            <td colSpan={8} className="px-5 py-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    {/* Contact */}
+                    <div className="space-y-1">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Contact</p>
+                        {b.address && <p><span className="text-gray-400">Address:</span> {b.address}</p>}
+                        {b.contact_person && <p><span className="text-gray-400">Person:</span> {b.contact_person}</p>}
+                        {b.contact_phone && <p><span className="text-gray-400">Phone:</span> <a href={`tel:${b.contact_phone}`} className="text-amber-700 font-medium">{b.contact_phone}</a></p>}
+                        {b.ward && <p><span className="text-gray-400">Ward:</span> {b.ward}{b.district ? `, ${b.district}` : ''}</p>}
+                        {!b.address && !b.contact_person && !b.contact_phone && <p className="text-gray-300 italic text-xs">No contact info recorded</p>}
+                    </div>
+                    {/* Products */}
+                    <div className="space-y-2">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Products</p>
+                        {egg?.buys_eggs ? (
+                            <div className="text-xs space-y-0.5">
+                                <p className="font-medium text-green-700">🥚 Eggs</p>
+                                <p><span className="text-gray-400">Trays/purchase:</span> {egg.trays_per_purchase}</p>
+                                {egg.frequency && <p><span className="text-gray-400">Frequency:</span> {egg.frequency}</p>}
+                                {egg.price_per_tray && <p><span className="text-gray-400">Price/tray:</span> TSh {Number(egg.price_per_tray).toLocaleString()}</p>}
+                                {egg.grade && <p><span className="text-gray-400">Grade:</span> {egg.grade}</p>}
+                                {egg.current_supplier && <p><span className="text-gray-400">Current supplier:</span> {egg.current_supplier}</p>}
+                            </div>
+                        ) : <p className="text-xs text-gray-300">Does not buy eggs</p>}
+                        {chk?.buys_chicken ? (
+                            <div className="text-xs space-y-0.5 mt-2">
+                                <p className="font-medium text-blue-700">🐔 Chicken</p>
+                                <p><span className="text-gray-400">Birds/week:</span> {chk.birds_per_week}</p>
+                                {chk.frequency && <p><span className="text-gray-400">Frequency:</span> {chk.frequency}</p>}
+                                {chk.price_per_bird && <p><span className="text-gray-400">Price/bird:</span> TSh {Number(chk.price_per_bird).toLocaleString()}</p>}
+                                {chk.preferred_weight_kg && <p><span className="text-gray-400">Pref. weight:</span> {chk.preferred_weight_kg} kg</p>}
+                                {chk.current_supplier && <p><span className="text-gray-400">Current supplier:</span> {chk.current_supplier}</p>}
+                            </div>
+                        ) : <p className="text-xs text-gray-300 mt-2">Does not buy chicken</p>}
+                    </div>
+                    {/* Visit */}
+                    <div className="space-y-1">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Visit Notes</p>
+                        {visit?.notes ? (
+                            <p className="text-gray-700 bg-white rounded-lg px-3 py-2 border text-xs leading-relaxed">{visit.notes}</p>
+                        ) : (
+                            <p className="text-gray-300 italic text-xs">No notes</p>
+                        )}
+                        {visit?.marketing_permission && (
+                            <p className="text-xs text-green-700 font-medium mt-1">✓ Marketing permission granted</p>
+                        )}
+                        {visit?.visited_at && (
+                            <p className="text-xs text-gray-400 mt-1">Visited: {new Date(visit.visited_at).toLocaleDateString()}</p>
+                        )}
+                        {b.field_agent?.name && (
+                            <p className="text-xs text-gray-400">Agent: {b.field_agent.name}</p>
+                        )}
+                    </div>
+                </div>
+            </td>
+        </tr>
+    );
+}
+
 function BusinessList() {
     const [businesses, setBusinesses] = useState(null);
     const [filters, setFilters] = useState({ area: '', type: '', product: '', interest: '' });
+    const [expanded, setExpanded] = useState(null);
 
     const load = () => {
         const params = Object.fromEntries(Object.entries(filters).filter(([, v]) => v));
@@ -173,19 +239,19 @@ function BusinessList() {
 
     useEffect(() => { load(); }, []);
 
+    const toggle = (id) => setExpanded(prev => prev === id ? null : id);
+
     const exportCSV = () => {
         if (!businesses?.data) return;
-        const rows = [['Name', 'Type', 'Area', 'Ward', 'District', 'Egg Buyer', 'Trays/Purchase', 'Egg Freq', 'Chicken Buyer', 'Birds/Wk', 'Chicken Freq', 'Interest', 'Agent']];
+        const rows = [['Name', 'Type', 'Area', 'Ward', 'District', 'Address', 'Contact Person', 'Contact Phone', 'Egg Buyer', 'Trays/Purchase', 'Egg Freq', 'Egg Price', 'Egg Grade', 'Egg Supplier', 'Chicken Buyer', 'Birds/Wk', 'Chicken Freq', 'Chicken Price', 'Pref Weight', 'Chicken Supplier', 'Interest', 'Marketing Permission', 'Notes', 'Agent', 'Visit Date']];
         businesses.data.forEach(b => rows.push([
-            b.name, b.type, b.area, b.ward || '', b.district || '',
+            b.name, b.type, b.area, b.ward || '', b.district || '', b.address || '', b.contact_person || '', b.contact_phone || '',
             b.egg_demand?.buys_eggs ? 'Yes' : 'No',
-            b.egg_demand?.trays_per_purchase ?? '',
-            b.egg_demand?.frequency ?? '',
+            b.egg_demand?.trays_per_purchase ?? '', b.egg_demand?.frequency ?? '', b.egg_demand?.price_per_tray ?? '', b.egg_demand?.grade ?? '', b.egg_demand?.current_supplier ?? '',
             b.chicken_demand?.buys_chicken ? 'Yes' : 'No',
-            b.chicken_demand?.birds_per_week ?? '',
-            b.chicken_demand?.frequency ?? '',
-            b.latest_visit?.interested_in_supply ?? '',
-            b.field_agent?.name ?? '',
+            b.chicken_demand?.birds_per_week ?? '', b.chicken_demand?.frequency ?? '', b.chicken_demand?.price_per_bird ?? '', b.chicken_demand?.preferred_weight_kg ?? '', b.chicken_demand?.current_supplier ?? '',
+            b.latest_visit?.interested_in_supply ?? '', b.latest_visit?.marketing_permission ? 'Yes' : 'No', b.latest_visit?.notes ?? '',
+            b.field_agent?.name ?? '', b.latest_visit?.visited_at ? new Date(b.latest_visit.visited_at).toLocaleDateString() : '',
         ]));
         const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
         const a = document.createElement('a');
@@ -217,6 +283,7 @@ function BusinessList() {
                 </select>
                 <button onClick={load} className="bg-amber-600 text-white text-sm px-3 py-1.5 rounded-lg hover:bg-amber-700 transition">Filter</button>
             </div>
+            <p className="text-xs text-gray-400">Click any row to see full details</p>
             {!businesses ? <div className="text-gray-400">Loading…</div> : (
                 <div className="bg-white rounded-xl shadow-sm overflow-x-auto">
                     <table className="w-full text-sm">
@@ -225,22 +292,25 @@ function BusinessList() {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {businesses.data?.map(b => (
-                                <tr key={b.id} className="hover:bg-gray-50">
-                                    <td className="px-4 py-2 font-medium">{b.name}</td>
-                                    <td className="px-4 py-2 text-gray-500 capitalize">{b.type}</td>
-                                    <td className="px-4 py-2 text-gray-500">{b.area}</td>
-                                    <td className="px-4 py-2 text-gray-400 text-xs">{b.ward || '—'}</td>
-                                    <td className="px-4 py-2 text-xs">{b.egg_demand?.buys_eggs ? <span className="text-green-700">{b.egg_demand.trays_per_purchase} trays<br /><span className="text-gray-400">{b.egg_demand.frequency}</span></span> : <span className="text-gray-300">—</span>}</td>
-                                    <td className="px-4 py-2 text-xs">{b.chicken_demand?.buys_chicken ? <span className="text-blue-700">{b.chicken_demand.birds_per_week} birds/wk<br /><span className="text-gray-400">{b.chicken_demand.frequency}</span></span> : <span className="text-gray-300">—</span>}</td>
-                                    <td className="px-4 py-2">
-                                        {b.latest_visit?.interested_in_supply && (
-                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${b.latest_visit.interested_in_supply === 'yes' ? 'bg-green-100 text-green-700' : b.latest_visit.interested_in_supply === 'maybe' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-                                                {b.latest_visit.interested_in_supply}
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="px-4 py-2 text-gray-400 text-xs">{b.field_agent?.name}</td>
-                                </tr>
+                                <React.Fragment key={b.id}>
+                                    <tr onClick={() => toggle(b.id)} className="hover:bg-amber-50 cursor-pointer">
+                                        <td className="px-4 py-2 font-medium">{b.name} <span className="text-gray-300 text-xs">{expanded === b.id ? '▲' : '▼'}</span></td>
+                                        <td className="px-4 py-2 text-gray-500 capitalize">{b.type}</td>
+                                        <td className="px-4 py-2 text-gray-500">{b.area}</td>
+                                        <td className="px-4 py-2 text-gray-400 text-xs">{b.ward || '—'}</td>
+                                        <td className="px-4 py-2 text-xs">{b.egg_demand?.buys_eggs ? <span className="text-green-700">{b.egg_demand.trays_per_purchase} trays<br /><span className="text-gray-400">{b.egg_demand.frequency}</span></span> : <span className="text-gray-300">—</span>}</td>
+                                        <td className="px-4 py-2 text-xs">{b.chicken_demand?.buys_chicken ? <span className="text-blue-700">{b.chicken_demand.birds_per_week} birds/wk<br /><span className="text-gray-400">{b.chicken_demand.frequency}</span></span> : <span className="text-gray-300">—</span>}</td>
+                                        <td className="px-4 py-2">
+                                            {b.latest_visit?.interested_in_supply && (
+                                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${b.latest_visit.interested_in_supply === 'yes' ? 'bg-green-100 text-green-700' : b.latest_visit.interested_in_supply === 'maybe' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                                                    {b.latest_visit.interested_in_supply}
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-2 text-gray-400 text-xs">{b.field_agent?.name}</td>
+                                    </tr>
+                                    {expanded === b.id && <DetailRow b={b} />}
+                                </React.Fragment>
                             ))}
                         </tbody>
                     </table>
