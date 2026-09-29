@@ -32,5 +32,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/dashboard/agents', [DashboardController::class, 'createAgent']);
         Route::get('/dashboard/farmers', [FarmerController::class, 'index']);
         Route::get('/dashboard/farmers/map', [FarmerController::class, 'mapPoints']);
+        Route::delete('/dashboard/businesses/{business}', [DashboardController::class, 'deleteBusiness']);
     });
 });

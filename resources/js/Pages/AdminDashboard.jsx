@@ -302,11 +302,25 @@ function BusinessEditForm({ b, onSaved, onCancel }) {
     );
 }
 
-function DetailRow({ b, onSaved }) {
+function DetailRow({ b, onSaved, onDeleted }) {
     const [editing, setEditing] = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState(false);
+    const [deleting, setDeleting] = useState(false);
     const visit = b.latest_visit;
     const egg = b.egg_demand;
     const chk = b.chicken_demand;
+
+    const handleDelete = async (e) => {
+        e.stopPropagation();
+        setDeleting(true);
+        try {
+            await api.delete(`/dashboard/businesses/${b.id}`);
+            onDeleted(b.id);
+        } catch {
+            setDeleting(false);
+            setConfirmDelete(false);
+        }
+    };
 
     if (editing) {
         return (
@@ -325,13 +339,35 @@ function DetailRow({ b, onSaved }) {
     return (
         <tr className="bg-amber-50/60 border-b border-amber-100">
             <td colSpan={8} className="px-5 py-4">
-                <div className="flex justify-end mb-2">
-                    <button
-                        onClick={e => { e.stopPropagation(); setEditing(true); }}
-                        className="text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1 rounded-lg font-medium"
-                    >
-                        Edit
-                    </button>
+                <div className="flex justify-end gap-2 mb-2">
+                    {confirmDelete ? (
+                        <>
+                            <span className="text-xs text-red-700 self-center font-medium">Delete "{b.name}"?</span>
+                            <button onClick={handleDelete} disabled={deleting}
+                                className="text-xs bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg font-medium disabled:opacity-50">
+                                {deleting ? 'Deleting…' : 'Yes, delete'}
+                            </button>
+                            <button onClick={e => { e.stopPropagation(); setConfirmDelete(false); }}
+                                className="text-xs border px-3 py-1 rounded-lg hover:bg-gray-50">
+                                Cancel
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button
+                                onClick={e => { e.stopPropagation(); setEditing(true); }}
+                                className="text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1 rounded-lg font-medium"
+                            >
+                                Edit
+                            </button>
+                            <button
+                                onClick={e => { e.stopPropagation(); setConfirmDelete(true); }}
+                                className="text-xs bg-red-50 hover:bg-red-100 text-red-700 px-3 py-1 rounded-lg font-medium"
+                            >
+                                Delete
+                            </button>
+                        </>
+                    )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     {/* Contact */}
@@ -478,6 +514,10 @@ function BusinessList() {
                                             b={b}
                                             onSaved={updated => {
                                                 setBusinesses(prev => ({ ...prev, data: prev.data.map(x => x.id === updated.id ? updated : x) }));
+                                            }}
+                                            onDeleted={id => {
+                                                setExpanded(null);
+                                                setBusinesses(prev => ({ ...prev, data: prev.data.filter(x => x.id !== id), total: prev.total - 1 }));
                                             }}
                                         />
                                     )}

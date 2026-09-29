@@ -109,6 +109,16 @@ class DashboardController extends Controller
         return response()->json($agents);
     }
 
+    public function deleteBusiness(Business $business): JsonResponse
+    {
+        $business->surveyVisits()->delete();
+        $business->eggDemand()->delete();
+        $business->chickenDemand()->delete();
+        $business->delete();
+
+        return response()->json(['message' => 'Deleted']);
+    }
+
     public function createAgent(Request $request): JsonResponse
     {
         $data = $request->validate([
