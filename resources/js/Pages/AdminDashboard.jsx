@@ -4,6 +4,8 @@ import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
+import AgentSurvey from './AgentSurvey';
+import AgentFarmer from './AgentFarmer';
 
 const INTEREST_COLOR = { yes: '#16a34a', maybe: '#d97706', no: '#dc2626' };
 
@@ -417,6 +419,9 @@ export default function AdminDashboard() {
                         <NavLink to="/dashboard/suppliers" className={navClass}>Suppliers</NavLink>
                         <NavLink to="/dashboard/map" className={navClass}>Map</NavLink>
                         <NavLink to="/dashboard/clusters" className={navClass}>Clusters</NavLink>
+                        <span className="w-px bg-amber-600 mx-1 self-stretch" />
+                        <NavLink to="/dashboard/add-business" className={navClass}>+ Business</NavLink>
+                        <NavLink to="/dashboard/add-supplier" className={navClass}>+ Supplier</NavLink>
                     </nav>
                 </div>
                 <div className="flex items-center gap-3">
@@ -431,6 +436,8 @@ export default function AdminDashboard() {
                     <Route path="suppliers" element={<FarmerList />} />
                     <Route path="map" element={<MapView />} />
                     <Route path="clusters" element={<Clusters />} />
+                    <Route path="add-business" element={<div className="max-w-lg mx-auto"><AgentSurvey /></div>} />
+                    <Route path="add-supplier" element={<div className="max-w-lg mx-auto"><AgentFarmer /></div>} />
                 </Routes>
             </main>
         </div>
